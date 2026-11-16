@@ -92,7 +92,8 @@ const canonical = path === undefined ? null : new URL(path, origin).href;
               <a
                 class="icon"
                 href={s.href}
-                rel={s.id === 'whatsapp' ? undefined : 'me'}
+                target="_blank"
+                rel={s.id === 'whatsapp' ? 'noopener' : 'me noopener'}
                 aria-label={s.label}
                 title={s.label}
               >
