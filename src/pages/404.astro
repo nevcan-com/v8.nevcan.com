@@ -1,0 +1,72 @@
+---
+import Base from '../layouts/Base.astro';
+import Me from '../components/Me.astro';
+import { sites } from '../data/sites';
+import { name } from '../data/profile';
+
+const live = sites.filter((s) => s.live);
+---
+
+<Base title={`Page not found · ${name}`} description="This page doesn't exist." noindex>
+  <main class="stage">
+    <Me />
+
+    <h1 class="display">
+      <span class="lead">404</span>
+      <span>Lost at sea.</span>
+    </h1>
+
+    <p class="sub">This page doesn't exist, or it moved. Pick up the trail here:</p>
+
+    <ul class="ways">
+      <li>
+        <a href="/">
+          <span class="way-name">Home</span>
+          <span class="way-host">nevcan.com</span>
+        </a>
+      </li>
+      {live.map((s) => (
+        <li>
+          <a href={`https://${s.host}`}>
+            <span class="way-name">{s.name}</span>
+            <span class="way-host">
+              {s.host} <span class="go">↗</span>
+            </span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </main>
+
+  <style>
+    .ways {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 2.5rem;
+      margin: clamp(1.5rem, 1rem + 1.5vw, 2.5rem) 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    .ways a {
+      display: grid;
+      gap: 0.2rem;
+      padding-bottom: 0.35rem;
+      background: linear-gradient(var(--accent), var(--accent)) 0 100% / 0 1px no-repeat;
+      transition: background-size 280ms var(--ease);
+    }
+    .ways a:hover,
+    .ways a:focus-visible {
+      background-size: 100% 1px;
+    }
+    .way-name {
+      font-size: clamp(1.1rem, 1rem + 0.5vw, 1.4rem);
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+    .way-host {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+  </style>
+</Base>

@@ -1,0 +1,9 @@
+/* self-hosted, SIL OFL 1.1, subset to Latin + Turkish (same file as dive.nevcan.com) */
+
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../assets/fonts/inter-var.woff2') format('woff2');
+}

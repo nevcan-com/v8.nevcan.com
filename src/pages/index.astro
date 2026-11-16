@@ -1,0 +1,346 @@
+---
+import Base from '../layouts/Base.astro';
+import Me from '../components/Me.astro';
+import { sites as allSites, ROTATE_MS } from '../data/sites';
+import { name } from '../data/profile';
+
+// sites that aren't up yet stay out of the page entirely
+const sites = allSites.filter((s) => s.live);
+
+const description = `${name}: ${sites.map((s) => s.label).join(', ')}. One site for each.`;
+const first = sites[0]!;
+---
+
+<Base title={name} description={description} path="/">
+  <main class="stage" data-stage data-rotate-ms={ROTATE_MS}>
+    <Me as="h1" />
+
+    <!-- The rotating line is for pointer users. Screen readers and the keyboard use the list in
+         the footer, which drives the same line. -->
+    <div class="display comp" aria-hidden="true">
+      <span class="lead">I'm a</span>
+      <ul class="rotor" data-rotor>
+        {sites.map((s, i) => (
+          <li class="word" data-word data-offset={i === 0 ? '0' : 'far'} data-host={s.host}>
+            <a href={`https://${s.host}`} tabindex="-1">
+              {s.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+    <p class="sub dest" aria-hidden="true">
+      <span data-dest-host>{first.host}</span>
+      <span class="go">↗</span>
+    </p>
+  </main>
+
+  <nav class="index" aria-label="Sites" slot="footer">
+    <ul>
+      {sites.map((s, i) => (
+        <li data-index={i} data-active={i === 0 ? '' : undefined}>
+          <a href={`https://${s.host}`} title={s.host}>
+            {s.name}
+          </a>
+        </li>
+      ))}
+    </ul>
+  </nav>
+  <Fragment slot="meta">
+    <span class="hint hint-fine">Scroll to choose, click to go</span>
+    <span class="hint hint-touch">Swipe to choose, tap to go</span>
+  </Fragment>
+
+  <style is:global>
+    :root {
+      --slide: 600ms;
+    }
+
+    /* one screen, no page scroll: the wheel picks the word instead */
+    body {
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
+
+    .rotor {
+      display: grid;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      /* clip above and below only: the slide stays inside one line */
+      clip-path: inset(0 -0.5em);
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+
+    .word {
+      grid-area: 1 / 1;
+      white-space: nowrap;
+      transition: transform var(--slide) var(--ease);
+    }
+    .word[data-offset='0'] {
+      transform: none;
+    }
+    .word[data-offset='-1'] {
+      transform: translateY(-105%);
+    }
+    .word[data-offset='1'] {
+      transform: translateY(105%);
+    }
+    .word[data-offset='far'] {
+      visibility: hidden;
+      transition: none;
+    }
+    .word.no-anim {
+      transition: none;
+    }
+    .word:not([data-offset='0']) {
+      pointer-events: none;
+    }
+
+    /* the underline: shown where the visitor is (pointer, focus, a fresh swipe) */
+    .word a,
+    .index a {
+      background: linear-gradient(var(--accent), var(--accent)) 0 100% / 0 var(--line, 1px)
+        no-repeat;
+      transition:
+        background-size 280ms var(--ease),
+        color 200ms;
+    }
+    .word a {
+      display: inline-block;
+      --line: 0.04em;
+      /* room for descenders (the g in "engineer"); the underline sits below them */
+      padding-bottom: 0.16em;
+    }
+    [data-paused] .word[data-offset='0'] a,
+    [data-paused] .index [data-active] a {
+      background-size: 100% var(--line, 1px);
+    }
+
+    .dest {
+      display: flex;
+      gap: 0.5em;
+      align-items: baseline;
+    }
+
+    .index ul {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1.5rem;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .index a {
+      display: inline-block;
+      padding-block: 0.25rem;
+    }
+    .index [data-active] a {
+      color: var(--ink);
+    }
+
+    .hint {
+      display: none;
+    }
+    .js .hint-fine {
+      display: inline;
+    }
+    @media not (any-pointer: fine) {
+      .js .hint-fine {
+        display: none;
+      }
+      .js .hint-touch {
+        display: inline;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      :root {
+        --slide: 0ms;
+      }
+    }
+  </style>
+
+  <script>
+    document.documentElement.classList.add('js');
+
+    const stage = document.querySelector<HTMLElement>('[data-stage]')!;
+    const rotor = document.querySelector<HTMLElement>('[data-rotor]')!;
+    const comp = document.querySelector<HTMLElement>('.comp')!;
+    const index = document.querySelector<HTMLElement>('.index')!;
+    const words = [...document.querySelectorAll<HTMLElement>('[data-word]')];
+    const items = [...document.querySelectorAll<HTMLElement>('[data-index]')];
+    const destHost = document.querySelector<HTMLElement>('[data-dest-host]')!;
+
+    const n = words.length;
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+    const rotateMs = () => (reduced.matches ? 2400 : Number(stage.dataset.rotateMs) || 1000);
+
+    let cur = 0;
+
+    /** show word i; dir 1 slides it in from below, -1 from above */
+    function go(i: number, dir = 1) {
+      const next = ((i % n) + n) % n;
+      if (next === cur) return;
+      const incoming = words[next]!;
+      const outgoing = words[cur]!;
+      words.forEach((w) => {
+        if (w !== incoming && w !== outgoing) w.dataset.offset = 'far';
+      });
+      // park the incoming word on the side it comes from, without animating, then slide it in
+      incoming.classList.add('no-anim');
+      incoming.dataset.offset = String(dir);
+      void incoming.offsetHeight;
+      incoming.classList.remove('no-anim');
+      incoming.dataset.offset = '0';
+      outgoing.dataset.offset = String(-dir);
+
+      cur = next;
+      items.forEach((el, j) => el.toggleAttribute('data-active', j === cur));
+      destHost.textContent = incoming.dataset.host ?? '';
+    }
+
+    const step = (dir: number) => go(cur + dir, dir);
+    const jump = (i: number) => go(i, i >= cur ? 1 : -1);
+
+    function visit() {
+      const a = words[cur]!.querySelector('a');
+      if (a) location.href = a.href;
+    }
+
+    // ---- auto-rotation, stopped while someone is choosing ----
+    // The underline marks where the visitor is: under the pointer, or keyboard focus, or a
+    // fresh swipe on touch. It goes the moment that ends, even while the rotation still waits
+    // a little before moving on (holdUntil).
+    let hovering = false;
+    let focused = false;
+    let holdUntil = 0;
+    let markUntil = 0;
+    const syncMark = () =>
+      document.body.toggleAttribute(
+        'data-paused',
+        hovering || focused || performance.now() < markUntil,
+      );
+    const hold = (ms = 3500, mark = false) => {
+      const until = performance.now() + ms;
+      holdUntil = Math.max(holdUntil, until);
+      if (mark) markUntil = Math.max(markUntil, until);
+      syncMark();
+    };
+    const setHovering = (on: boolean) => {
+      hovering = on;
+      syncMark();
+    };
+    // a swipe's mark runs out on its own; this clears it in time
+    setInterval(syncMark, 150);
+
+    let timer = 0;
+    const schedule = () => {
+      clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        if (!hovering && !document.hidden && performance.now() >= holdUntil) step(1);
+        schedule();
+      }, rotateMs());
+    };
+    if (n > 1) schedule();
+
+    // hovering the line stops it, so the word under the pointer can be clicked
+    comp.addEventListener('pointerenter', (e) => {
+      if (e.pointerType === 'mouse' || e.pointerType === 'pen') setHovering(true);
+    });
+    comp.addEventListener('pointerleave', () => {
+      setHovering(false);
+      hold(1200);
+    });
+    // a press freezes the word, so a tap opens the word that was showing when it started
+    rotor.addEventListener('pointerdown', () => hold(1500));
+
+    // ---- wheel: one word per notch; a trackpad flick counts once ----
+    let acc = 0;
+    let stepAt = -Infinity;
+    let lastWheel = -Infinity;
+    window.addEventListener(
+      'wheel',
+      (e) => {
+        e.preventDefault();
+        const now = performance.now();
+        const continuous = now - lastWheel < 120;
+        lastWheel = now;
+        hold();
+        if (continuous && now - stepAt < 450) return;
+        if (!continuous) acc = 0;
+        acc += Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+        if (Math.abs(acc) >= 20) {
+          step(Math.sign(acc));
+          acc = 0;
+          stepAt = now;
+        }
+      },
+      { passive: false },
+    );
+
+    // ---- touch: swipe up/down on the line area ----
+    let touchY: number | null = null;
+    stage.addEventListener(
+      'touchstart',
+      (e) => {
+        touchY = e.touches[0]?.clientY ?? null;
+        hold(4000);
+      },
+      { passive: true },
+    );
+    stage.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+    stage.addEventListener('touchend', (e) => {
+      const y = e.changedTouches[0]?.clientY;
+      if (touchY === null || y === undefined) return;
+      const dy = touchY - y;
+      touchY = null;
+      if (Math.abs(dy) > 30) {
+        e.preventDefault(); // a swipe, not a tap
+        step(Math.sign(dy));
+        hold(4000, true);
+      }
+    });
+
+    // ---- keyboard ----
+    document.addEventListener('keydown', (e) => {
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      const inIndex = index.contains(e.target as Node);
+      if (['ArrowDown', 'ArrowRight'].includes(e.key)) step(1);
+      else if (['ArrowUp', 'ArrowLeft'].includes(e.key)) step(-1);
+      else if (e.key === 'Enter' && !inIndex) return visit();
+      else return;
+      e.preventDefault();
+      hold(5000, true);
+      if (inIndex) items[cur]?.querySelector('a')?.focus();
+    });
+
+    // ---- the list at the bottom drives the line too ----
+    items.forEach((el, i) => {
+      el.addEventListener('pointerenter', (e) => {
+        jump(i);
+        if (e.pointerType === 'mouse' || e.pointerType === 'pen') setHovering(true);
+      });
+      el.addEventListener('pointerleave', () => {
+        setHovering(false);
+        hold(1200);
+      });
+      el.addEventListener('focusin', () => {
+        jump(i);
+        focused = true;
+        hold(60_000);
+      });
+      el.addEventListener('focusout', () => {
+        focused = false;
+        holdUntil = performance.now() + 1500;
+        syncMark();
+      });
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && n > 1) schedule();
+    });
+  </script>
+</Base>

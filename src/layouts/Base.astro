@@ -1,0 +1,269 @@
+---
+import '../styles/fonts.css';
+import { name, since, email, social, STAGING } from '../data/profile';
+
+interface Props {
+  title: string;
+  description: string;
+  /** canonical path; omit for pages that shouldn't have one (404) */
+  path?: string;
+  noindex?: boolean;
+}
+
+const { title, description, path, noindex = false } = Astro.props;
+const year = new Date().getFullYear();
+
+/** 24×24 line icons, drawn in currentColor */
+const icons: Record<(typeof social)[number]['id'], string> = {
+  linkedin:
+    '<rect x="2.75" y="2.75" width="18.5" height="18.5" rx="3.5" fill="none" stroke="currentColor" stroke-width="1.5"/>' +
+    '<path d="M8 10.5V17M8 7.25v.01M11.5 17v-6.5M11.5 13.25c0-1.6 1.1-2.75 2.6-2.75S16.5 11.5 16.5 13v4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+  instagram:
+    '<rect x="2.75" y="2.75" width="18.5" height="18.5" rx="5.25" fill="none" stroke="currentColor" stroke-width="1.5"/>' +
+    '<circle cx="12" cy="12" r="4.25" fill="none" stroke="currentColor" stroke-width="1.5"/>' +
+    '<circle cx="17.4" cy="6.6" r="1" fill="currentColor"/>',
+};
+const canonical = path === undefined ? null : new URL(path, 'https://www.nevcan.com').href;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {(noindex || STAGING) && <meta name="robots" content="noindex" />}
+    {canonical && <link rel="canonical" href={canonical} />}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#01050a" />
+    <meta name="color-scheme" content="dark" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    {canonical && <meta property="og:url" content={canonical} />}
+  </head>
+  <body>
+    <header class="top">
+      <a class="logo" href="/" aria-label={name}>
+        <svg viewBox="316 253 771 262" aria-hidden="true">
+          <path
+            d="M350 283 533 485V283M624 283h159M624 384h159M624 485h159M874 283v202l183-202"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="40"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          ></path>
+          <circle cx="353" cy="478" r="27" fill="var(--accent)"></circle>
+        </svg>
+      </a>
+    </header>
+
+    <slot />
+
+    <footer class="bottom">
+      <slot name="footer" />
+      <div class="meta">
+        <slot name="meta" />
+        <ul class="social" aria-label="Elsewhere">
+          {email && (
+            <li>
+              <a href={`mailto:${email}`}>{email}</a>
+            </li>
+          )}
+          {social.map((s) => (
+            <li>
+              <a class="icon" href={s.href} rel="me" aria-label={s.label} title={s.label}>
+                <svg viewBox="0 0 24 24" aria-hidden="true" set:html={icons[s.id]} />
+              </a>
+            </li>
+          ))}
+        </ul>
+        <span>
+          © {since}–{year} {name}
+        </span>
+      </div>
+    </footer>
+
+    <style is:global>
+      :root {
+        --bg: #01050a;
+        --ink: #eef2f5;
+        --muted: #8b97a3;
+        --faint: #4c5763;
+        --accent: #6ff7e0;
+
+        --sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+        --gutter: clamp(1rem, 0.4rem + 3vw, 3rem);
+        /* the longest word ("software engineer", 8.14em at this weight) fits the width */
+        --word: min(7.5rem, (100vw - 2 * var(--gutter)) / 8.6);
+        --ease: cubic-bezier(0.22, 0.8, 0.24, 1);
+
+        color-scheme: dark;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        grid-template-columns: minmax(0, 1fr);
+        padding: var(--gutter);
+        background:
+          radial-gradient(60rem 40rem at 15% 55%, rgb(111 247 224 / 0.035), transparent 70%),
+          var(--bg);
+        color: var(--ink);
+        font-family: var(--sans);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 4px;
+        border-radius: 2px;
+      }
+
+      /* ---- header ---- */
+      .logo {
+        display: inline-flex;
+        color: var(--ink);
+      }
+      .logo svg {
+        height: 1.1rem;
+        width: auto;
+      }
+
+      /* ---- the middle ---- */
+      .stage {
+        display: grid;
+        align-content: center;
+        max-width: 80rem;
+        width: 100%;
+        margin-inline: auto;
+        padding-block: 2rem;
+      }
+
+      .me {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 0 0 clamp(1.25rem, 0.8rem + 1.5vw, 2.25rem);
+        font-size: clamp(0.95rem, 0.9rem + 0.25vw, 1.15rem);
+        font-weight: 500;
+        letter-spacing: -0.005em;
+        color: var(--ink);
+      }
+      .avatar {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        object-fit: cover;
+        box-shadow: 0 0 0 1px rgb(238 242 245 / 0.14);
+      }
+
+      /* the big two lines: a quiet grey one, then a bright one */
+      .display {
+        display: grid;
+        justify-items: start;
+        margin: 0;
+        font-size: var(--word);
+        font-weight: 600;
+        line-height: 1.08;
+        letter-spacing: -0.045em;
+      }
+      .display .lead {
+        font-weight: 400;
+        letter-spacing: -0.035em;
+        color: var(--faint);
+      }
+
+      /* the small line under the big ones */
+      .sub {
+        margin: clamp(0.75rem, 0.6rem + 0.6vw, 1.25rem) 0 0;
+        font-size: clamp(0.8rem, 0.75rem + 0.2vw, 0.95rem);
+        font-weight: 400;
+        letter-spacing: 0.01em;
+        color: var(--muted);
+      }
+      .go {
+        color: var(--accent);
+      }
+
+      /* ---- footer ---- */
+      .bottom {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem 2rem;
+        justify-content: space-between;
+        align-items: end;
+        font-size: 0.8rem;
+        color: var(--muted);
+      }
+
+      .meta {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem 1.5rem;
+        margin: 0;
+        color: var(--faint);
+      }
+      .social {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1.5rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .social a {
+        color: var(--muted);
+        background: linear-gradient(var(--accent), var(--accent)) 0 100% / 0 1px no-repeat;
+        transition:
+          background-size 280ms var(--ease),
+          color 200ms;
+      }
+      .social a:hover,
+      .social a:focus-visible {
+        color: var(--ink);
+        background-size: 100% 1px;
+      }
+      .social {
+        align-items: center;
+      }
+      .social .icon {
+        display: inline-flex;
+        padding: 0.35rem;
+        margin: -0.35rem;
+        background: none;
+        border-radius: 6px;
+      }
+      .social .icon svg {
+        width: 1.05rem;
+        height: 1.05rem;
+      }
+      .social .icon:hover,
+      .social .icon:focus-visible {
+        color: var(--accent);
+      }
+    </style>
+  </body>
+</html>

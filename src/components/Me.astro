@@ -1,0 +1,22 @@
+---
+import { name } from '../data/profile';
+
+interface Props {
+  /** h1 on the home page; a plain paragraph where the page's heading is something else */
+  as?: 'h1' | 'p';
+}
+
+const { as: Tag = 'p' } = Astro.props;
+---
+
+<Tag class="me">
+  <img
+    class="avatar"
+    src="/media/nev-portrait-256.webp"
+    width="256"
+    height="256"
+    alt=""
+    decoding="async"
+  />
+  <span>{name}</span>
+</Tag>

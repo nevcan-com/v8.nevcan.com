@@ -1,0 +1,24 @@
+# build output
+dist/
+.astro/
+
+# private notes (kept locally, not published)
+notes/
+
+# dependencies
+node_modules/
+
+# logs
+npm-debug.log*
+
+# env
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+.claude/settings.local.json
+
+# original photos (large, not shipped; web copies live in src/fs/media)
+source-media/
