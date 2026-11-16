@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import Me from '../components/Me.astro';
+import PointCloud from '../components/PointCloud.astro';
 import { sites as allSites, ROTATE_MS } from '../data/sites';
 import { name, email, origin, profiles } from '../data/profile';
 
@@ -24,6 +25,7 @@ const person = {
 ---
 
 <Base title={name} description={description} path="/" jsonLd={person}>
+  <PointCloud />
   <main class="stage" data-stage data-rotate-ms={ROTATE_MS}>
     <Me as="h1" />
 
@@ -72,6 +74,26 @@ const person = {
     body {
       overflow: hidden;
       overscroll-behavior: none;
+    }
+
+    /* the page sits above the point cloud */
+    .top,
+    .stage,
+    .bottom {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* wide screens: the text keeps to the left ~55%, the portrait takes the right */
+    @media (min-width: 47.5rem) {
+      :root {
+        --word: min(6.5rem, 55vw / 8.6);
+      }
+    }
+
+    /* only as wide as the words: hovering beside them (over the portrait) isn't hovering them */
+    .comp {
+      justify-self: start;
     }
 
     .rotor {
