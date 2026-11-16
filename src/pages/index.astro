@@ -2,16 +2,28 @@
 import Base from '../layouts/Base.astro';
 import Me from '../components/Me.astro';
 import { sites as allSites, ROTATE_MS } from '../data/sites';
-import { name } from '../data/profile';
+import { name, email, origin, profiles } from '../data/profile';
 
 // sites that aren't up yet stay out of the page entirely
 const sites = allSites.filter((s) => s.live);
 
 const description = `${name}: ${sites.map((s) => s.label).join(', ')}. One site for each.`;
 const first = sites[0]!;
+
+// who this is, for search engines: ties the name, photo, the sites and the profiles together
+const person = {
+  '@context': 'https://schema.org',
+  '@type': 'Person',
+  name,
+  url: `${origin}/`,
+  image: `${origin}/media/nev-portrait-256.webp`,
+  jobTitle: sites.map((s) => s.label.charAt(0).toUpperCase() + s.label.slice(1)),
+  ...(email && { email: `mailto:${email}` }),
+  sameAs: [...sites.map((s) => `https://${s.host}`), ...profiles],
+};
 ---
 
-<Base title={name} description={description} path="/">
+<Base title={name} description={description} path="/" jsonLd={person}>
   <main class="stage" data-stage data-rotate-ms={ROTATE_MS}>
     <Me as="h1" />
 

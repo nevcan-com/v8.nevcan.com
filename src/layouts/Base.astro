@@ -1,6 +1,6 @@
 ---
 import '../styles/fonts.css';
-import { name, since, email, social, STAGING } from '../data/profile';
+import { name, since, email, social, STAGING, origin } from '../data/profile';
 
 interface Props {
   title: string;
@@ -8,13 +8,19 @@ interface Props {
   /** canonical path; omit for pages that shouldn't have one (404) */
   path?: string;
   noindex?: boolean;
+  /** structured data for search engines, written as JSON-LD */
+  jsonLd?: object;
 }
 
-const { title, description, path, noindex = false } = Astro.props;
+const { title, description, path, noindex = false, jsonLd } = Astro.props;
+const ogImage = `${origin}/og-image.png`;
 const year = new Date().getFullYear();
 
 /** 24×24 line icons, drawn in currentColor */
 const icons: Record<(typeof social)[number]['id'], string> = {
+  whatsapp:
+    '<path d="M12 3.25a8.75 8.75 0 0 0-7.6 13.08L3.25 20.75l4.53-1.12A8.75 8.75 0 1 0 12 3.25Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>' +
+    '<path d="M9.1 7.9c-.3 0-.75.1-1 .45-.35.45-.85 1.15-.6 2.35.3 1.35 1.3 2.85 2.65 4 1.4 1.2 2.9 1.85 4.05 1.95 1.1.1 1.75-.5 2-.95.2-.35.2-.8 0-1l-1.7-1c-.3-.15-.6-.1-.8.15l-.55.65c-.15.2-.4.25-.6.15a6 6 0 0 1-2.7-2.6c-.1-.2-.05-.45.1-.6l.55-.6c.2-.2.25-.55.1-.8l-.95-1.85c-.1-.2-.3-.3-.55-.3Z" fill="currentColor"/>',
   linkedin:
     '<rect x="2.75" y="2.75" width="18.5" height="18.5" rx="3.5" fill="none" stroke="currentColor" stroke-width="1.5"/>' +
     '<path d="M8 10.5V17M8 7.25v.01M11.5 17v-6.5M11.5 13.25c0-1.6 1.1-2.75 2.6-2.75S16.5 11.5 16.5 13v4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
@@ -23,7 +29,7 @@ const icons: Record<(typeof social)[number]['id'], string> = {
     '<circle cx="12" cy="12" r="4.25" fill="none" stroke="currentColor" stroke-width="1.5"/>' +
     '<circle cx="17.4" cy="6.6" r="1" fill="currentColor"/>',
 };
-const canonical = path === undefined ? null : new URL(path, 'https://www.nevcan.com').href;
+const canonical = path === undefined ? null : new URL(path, origin).href;
 ---
 
 <!doctype html>
@@ -36,12 +42,21 @@ const canonical = path === undefined ? null : new URL(path, 'https://www.nevcan.
     {(noindex || STAGING) && <meta name="robots" content="noindex" />}
     {canonical && <link rel="canonical" href={canonical} />}
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="Nevcan" />
     <meta name="theme-color" content="#01050a" />
     <meta name="color-scheme" content="dark" />
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={name} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     {canonical && <meta property="og:url" content={canonical} />}
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="The NEV logo" />
+    <meta name="twitter:card" content="summary_large_image" />
+    {jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
   </head>
   <body>
     <header class="top">
@@ -74,7 +89,13 @@ const canonical = path === undefined ? null : new URL(path, 'https://www.nevcan.
           )}
           {social.map((s) => (
             <li>
-              <a class="icon" href={s.href} rel="me" aria-label={s.label} title={s.label}>
+              <a
+                class="icon"
+                href={s.href}
+                rel={s.id === 'whatsapp' ? undefined : 'me'}
+                aria-label={s.label}
+                title={s.label}
+              >
                 <svg viewBox="0 0 24 24" aria-hidden="true" set:html={icons[s.id]} />
               </a>
             </li>
@@ -255,6 +276,10 @@ const canonical = path === undefined ? null : new URL(path, 'https://www.nevcan.
         margin: -0.35rem;
         background: none;
         border-radius: 6px;
+      }
+      /* icons sit closer to each other than to the email address */
+      .social li:has(> .icon) + li:has(> .icon) {
+        margin-left: -0.6rem;
       }
       .social .icon svg {
         width: 1.05rem;

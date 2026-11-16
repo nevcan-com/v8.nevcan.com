@@ -51,6 +51,10 @@ size is set so the longest word fits the screen (`--word` in `index.astro`); a w
 - `src/pages/404.astro`: the not-found page ("Lost at sea."), linking home and to the live sites.
 - `src/data/profile.ts`: name, footer accounts, contact email (hidden while `null`), and `STAGING`.
 - `src/layouts/Base.astro`: head, logo, footer and the shared styles.
+- Share preview (`public/og-image.png`) and iOS home-screen icon (`public/apple-touch-icon.png`)
+  are rendered from SVGs in `design/` (see `design/README.md`).
+- The home page carries JSON-LD (`Person`): name, photo, roles, the sites, and every profile in
+  `profiles` (`src/data/profile.ts`). Absolute URLs follow `origin`, which follows `STAGING`.
 
 ## Domains
 
