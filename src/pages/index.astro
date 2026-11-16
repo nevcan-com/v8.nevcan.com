@@ -257,25 +257,30 @@ const first = sites[0]!;
     // a press freezes the word, so a tap opens the word that was showing when it started
     rotor.addEventListener('pointerdown', () => hold(1500));
 
-    // ---- wheel: one word per notch; a trackpad flick counts once ----
+    // ---- wheel: one word per gesture ----
+    // A gesture is a run of wheel events with no gap longer than GESTURE_GAP. A trackpad swipe
+    // and its momentum tail (often over a second) are one gesture, so they move one word; the
+    // next word needs a new gesture (or the next mouse-wheel notch after a short pause).
+    const GESTURE_GAP = 220;
     let acc = 0;
-    let stepAt = -Infinity;
     let lastWheel = -Infinity;
+    let stepped = false;
     window.addEventListener(
       'wheel',
       (e) => {
         e.preventDefault();
         const now = performance.now();
-        const continuous = now - lastWheel < 120;
+        if (now - lastWheel > GESTURE_GAP) {
+          acc = 0;
+          stepped = false;
+        }
         lastWheel = now;
         hold();
-        if (continuous && now - stepAt < 450) return;
-        if (!continuous) acc = 0;
+        if (stepped) return;
         acc += Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
         if (Math.abs(acc) >= 20) {
           step(Math.sign(acc));
-          acc = 0;
-          stepAt = now;
+          stepped = true;
         }
       },
       { passive: false },
