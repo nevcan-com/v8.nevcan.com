@@ -258,29 +258,46 @@ const first = sites[0]!;
     rotor.addEventListener('pointerdown', () => hold(1500));
 
     // ---- wheel: one word per gesture ----
-    // A gesture is a run of wheel events with no gap longer than GESTURE_GAP. A trackpad swipe
-    // and its momentum tail (often over a second) are one gesture, so they move one word; the
-    // next word needs a new gesture (or the next mouse-wheel notch after a short pause).
-    const GESTURE_GAP = 220;
+    // A trackpad swipe is followed by a momentum tail (sometimes 2–3 s) whose deltas only shrink.
+    // So one gesture moves one word, and a new gesture starts when either
+    // - the wheel has been quiet for GESTURE_GAP, or
+    // - the delta jumps up against the last few events (a fresh swipe during the tail, or the
+    //   next notch of a mouse wheel).
+    const GESTURE_GAP = 200;
+    const MIN_STEP_MS = 280; // never faster than this, whatever the device sends
+    const LINE_PX = 16;
     let acc = 0;
     let lastWheel = -Infinity;
+    let stepAt = -Infinity;
     let stepped = false;
+    let recent: number[] = []; // |delta| of the last few events
     window.addEventListener(
       'wheel',
       (e) => {
         e.preventDefault();
+        hold();
         const now = performance.now();
-        if (now - lastWheel > GESTURE_GAP) {
+        const unit = e.deltaMode === 1 ? LINE_PX : e.deltaMode === 2 ? innerHeight : 1;
+        const raw = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+        const d = raw * unit;
+        const mag = Math.abs(d);
+
+        const quiet = now - lastWheel > GESTURE_GAP;
+        const peak = recent.length ? Math.max(...recent) : 0;
+        const surge = recent.length >= 2 && mag > 8 && mag > peak * 1.5;
+        if (quiet || (stepped && surge && now - stepAt > MIN_STEP_MS)) {
           acc = 0;
           stepped = false;
         }
         lastWheel = now;
-        hold();
+        recent = quiet ? [mag] : [...recent.slice(-3), mag];
+
         if (stepped) return;
-        acc += Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-        if (Math.abs(acc) >= 20) {
+        acc += d;
+        if (Math.abs(acc) >= 20 && now - stepAt > MIN_STEP_MS) {
           step(Math.sign(acc));
           stepped = true;
+          stepAt = now;
         }
       },
       { passive: false },
