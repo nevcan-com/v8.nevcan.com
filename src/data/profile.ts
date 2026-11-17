@@ -39,5 +39,6 @@ export const profiles = [
   'https://x.com/nevcanuludas',
   'https://www.facebook.com/nevcanuludas',
   'https://sketchfab.com/nevcanuludas',
+  'https://orcid.org/0009-0008-2027-4072',
   'https://www.gue.com/diver-training/gue-instructors/instructor-resume?id=20397',
 ];
