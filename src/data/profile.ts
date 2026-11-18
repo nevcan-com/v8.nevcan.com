@@ -22,7 +22,7 @@ export const social = [
  * true while the site is previewed on v8.nevcan.com: every page is noindex, so search engines
  * don't pick up the preview. Set to false when www.nevcan.com moves to this site.
  */
-export const STAGING = true;
+export const STAGING = false;
 
 /** Where the site is served; absolute URLs (canonical, share image, JSON-LD) start here. */
 export const origin = STAGING ? 'https://v8.nevcan.com' : 'https://www.nevcan.com';
