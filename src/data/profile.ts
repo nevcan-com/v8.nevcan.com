@@ -19,13 +19,13 @@ export const social = [
 ] as const;
 
 /**
- * true while the site is previewed on v6.nevcan.com: every page is noindex, so search engines
+ * true while the site is previewed on v8.nevcan.com: every page is noindex, so search engines
  * don't pick up the preview. Set to false when www.nevcan.com moves to this site.
  */
 export const STAGING = true;
 
 /** Where the site is served; absolute URLs (canonical, share image, JSON-LD) start here. */
-export const origin = STAGING ? 'https://v6.nevcan.com' : 'https://www.nevcan.com';
+export const origin = STAGING ? 'https://v8.nevcan.com' : 'https://www.nevcan.com';
 
 /**
  * Every profile that is Nev's own, for search engines (JSON-LD `sameAs`); not shown on the page.

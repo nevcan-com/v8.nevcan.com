@@ -58,7 +58,7 @@ size is set so the longest word fits the screen (`--word` in `index.astro`); a w
 
 ## Domains
 
-While previewed on v6.nevcan.com, `STAGING = true` in `src/data/profile.ts` makes every page
+While previewed on v8.nevcan.com, `STAGING = true` in `src/data/profile.ts` makes every page
 noindex. Before moving www.nevcan.com here: add redirect pages for the old site's URLs, set
 `STAGING` to false, then move the custom domain from the old site's repository to this one.
 
