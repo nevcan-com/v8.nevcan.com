@@ -2,8 +2,11 @@
 /**
  * The portrait as a point cloud, drawn on one full-screen canvas behind the page.
  * Points come from public/media/nev-points.png (see design/make-points-image.swift): a greyscale
- * portrait without background, where brighter pixels get more and brighter dots.
- * The portrait stays still; dots scatter where the pointer passes and spring back.
+ * portrait without background, where brighter pixels get more and brighter dots, and the darkest
+ * parts (hair, T-shirt) get black dots, which show only on a background lighter than black.
+ * On load the dots gather from all around and settle without overshooting. Then the portrait
+ * stays still; dots scatter where the pointer passes and spring back. Following one of the
+ * site links scatters the portrait again before the next page opens.
  */
 ---
 
@@ -36,10 +39,18 @@
   const DENSITY_CURVE = 1.6; // > 1: dark features (brows, hair, beard) thin out, the face reads
   const CONTRAST = [0.06, 0.95]; // source brightness mapped to 0..1
   const ALPHA = [0.14, 1]; // dot opacity, dark → bright
+  // the dark parts (hair, T-shirt) as black dots: invisible on a black page, they show once the
+  // background is a little lighter than black
+  const DARK_BELOW = 0.2; // brightness under which a pixel also gets a black dot
+  const DARK_DENSITY = 0.3; // keep-probability of a black dot at full darkness
+  const DARK_COLOR = 'rgb(0 0 0 / 0.9)';
   const SPRING = 0.045; // pull back home
   const DAMPING = 0.86;
   const PUSH = 3.2; // how hard the pointer pushes
   const STEPS = 6; // opacity steps (one fillStyle each)
+  const GATHER_MS = 2200; // arrival, eased out: no overshoot
+  const GATHER_STAGGER_MS = 500; // dots start up to this much later than the first
+  const LEAVE_MS = 650; // scatter before following a link
 
   type Cloud = {
     n: number;
@@ -53,7 +64,11 @@
     vx: Float32Array;
     vy: Float32Array;
     phase: Float32Array;
-    buckets: Uint32Array[]; // dot indices per opacity step
+    sx: Float32Array; // scattered position, as an offset from home (device px)
+    sy: Float32Array;
+    delay: Float32Array; // arrival delay (ms)
+    buckets: Uint32Array[]; // light dot indices per opacity step
+    dark: Uint32Array; // black dot indices
   };
 
   async function load(): Promise<Cloud> {
@@ -68,21 +83,27 @@
 
     let seed = 1;
     const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-    const pts: { u: number; v: number; a: number }[] = [];
+    // fade out towards the photo's bottom and side edges, so the crop doesn't show
+    const edgeAt = (u: number, v: number) =>
+      Math.max(0, Math.min(1, (1 - v) / 0.28, u / 0.1, (1 - u) / 0.1));
+    const pts: { u: number; v: number; a: number; dark: boolean }[] = [];
     for (let y = 0; y < s; y++) {
       for (let x = 0; x < s; x++) {
         const i = (y * s + x) * 4;
         if (px[i + 3]! < 128) continue; // background
         const raw = px[i]! / 255;
         const lum = Math.min(1, Math.max(0, (raw - CONTRAST[0]!) / (CONTRAST[1]! - CONTRAST[0]!)));
+        if (lum < DARK_BELOW && rand() < DARK_DENSITY * (1 - lum / DARK_BELOW)) {
+          const u = (x + rand()) / s;
+          const v = (y + rand()) / s;
+          if (rand() < edgeAt(u, v)) pts.push({ u: u - 0.5, v: v - 0.5, a: 1, dark: true });
+        }
         if (rand() > DENSITY[0]! + (DENSITY[1]! - DENSITY[0]!) * lum ** DENSITY_CURVE) continue;
         const u = (x + rand()) / s;
         const v = (y + rand()) / s;
-        // fade out towards the photo's bottom and side edges, so the crop doesn't show
-        const edge = Math.max(0, Math.min(1, (1 - v) / 0.28, u / 0.1, (1 - u) / 0.1));
-        const a = (ALPHA[0]! + (ALPHA[1]! - ALPHA[0]!) * lum) * edge;
+        const a = (ALPHA[0]! + (ALPHA[1]! - ALPHA[0]!) * lum) * edgeAt(u, v);
         if (a < 0.04) continue;
-        pts.push({ u: u - 0.5, v: v - 0.5, a });
+        pts.push({ u: u - 0.5, v: v - 0.5, a, dark: false });
       }
     }
 
@@ -100,17 +121,25 @@
       vx: f(),
       vy: f(),
       phase: f(),
+      sx: f(),
+      sy: f(),
+      delay: f(),
       buckets: [],
+      dark: new Uint32Array(0),
     };
     const lists: number[][] = Array.from({ length: STEPS }, () => []);
+    const dark: number[] = [];
     pts.forEach((p, i) => {
       c.u[i] = p.u;
       c.v[i] = p.v;
       c.big[i] = 0.8 + p.a * 0.35;
       c.phase[i] = rand() * Math.PI * 2;
-      lists[Math.min(STEPS - 1, Math.floor(p.a * STEPS))]!.push(i);
+      c.delay[i] = rand() * GATHER_STAGGER_MS;
+      if (p.dark) dark.push(i);
+      else lists[Math.min(STEPS - 1, Math.floor(p.a * STEPS))]!.push(i);
     });
     c.buckets = lists.map((l) => Uint32Array.from(l));
+    c.dark = Uint32Array.from(dark);
     return c;
   }
 
@@ -138,6 +167,20 @@
     radius = 90 * dpr;
   }
 
+  // a new scattered position for every dot, all around the portrait
+  function scatter(c: Cloud) {
+    const spread = Math.min(W, H) * 0.6;
+    for (let i = 0; i < c.n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = (0.3 + Math.random() * 0.9) * spread;
+      c.sx[i] = Math.cos(a) * r;
+      c.sy[i] = Math.sin(a) * r;
+    }
+  }
+
+  const easeOut = (x: number) => 1 - (1 - x) ** 3;
+  const easeIn = (x: number) => x * x * x;
+
   // ---- pointer ----
   let pointer: { x: number; y: number } | null = null;
   addEventListener('pointermove', (e) => (pointer = { x: e.clientX * dpr, y: e.clientY * dpr }));
@@ -148,48 +191,102 @@
   });
 
   const styles = Array.from({ length: STEPS }, (_, b) => `rgb(238 242 245 / ${(b + 0.5) / STEPS})`);
+  const LIGHT = 'rgb(238 242 245)';
+
+  // what the dots are doing: gathering on load, live (pointer + spring), or leaving for a link
+  let mode: 'gather' | 'live' | 'leave' = 'gather';
+  let modeAt: number | null = null; // when the current mode started (frame time)
+
+  // where dot i is drawn this frame, and how visible (0..1)
+  let px = 0;
+  let py = 0;
+  let fade = 1;
+  function place(c: Cloud, i: number, t: number, move: boolean, R2: number) {
+    let ex = c.ox[i]!;
+    let ey = c.oy[i]!;
+    fade = 1;
+    if (move && mode === 'gather') {
+      const p = Math.min(1, Math.max(0, (t - modeAt! - c.delay[i]!) / GATHER_MS));
+      const k = 1 - easeOut(p);
+      ex = c.sx[i]! * k;
+      ey = c.sy[i]! * k;
+      fade = Math.min(1, p / 0.25);
+    } else if (move && mode === 'leave') {
+      const q = Math.min(1, (t - modeAt!) / LEAVE_MS);
+      const k = easeIn(q);
+      ex += c.sx[i]! * k;
+      ey += c.sy[i]! * k;
+      fade = 1 - q;
+    } else if (move) {
+      let vx = c.vx[i]! - c.ox[i]! * SPRING;
+      let vy = c.vy[i]! - c.oy[i]! * SPRING;
+      if (pointer) {
+        const dx = c.hx[i]! + c.ox[i]! - pointer.x;
+        const dy = c.hy[i]! + c.oy[i]! - pointer.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < R2 && d2 > 0.01) {
+          const d = Math.sqrt(d2);
+          const push = (1 - d / radius) ** 2 * PUSH * dpr;
+          vx += (dx / d) * push;
+          vy += (dy / d) * push;
+        }
+      }
+      vx *= DAMPING;
+      vy *= DAMPING;
+      c.vx[i] = vx;
+      c.vy[i] = vy;
+      c.ox[i] = ex = c.ox[i]! + vx;
+      c.oy[i] = ey = c.oy[i]! + vy;
+    }
+    // a faint shimmer, so the still portrait doesn't look frozen
+    const wob = move ? 0.5 * dpr : 0;
+    px = c.hx[i]! + ex + (wob ? Math.sin(t * 0.0011 + c.phase[i]!) * wob : 0);
+    py = c.hy[i]! + ey + (wob ? Math.cos(t * 0.0009 + c.phase[i]! * 1.3) * wob : 0);
+  }
 
   function draw(c: Cloud, t: number, move: boolean) {
     ctx.clearRect(0, 0, W, H);
     const R2 = radius * radius;
-    const wob = move ? 0.5 * dpr : 0;
+    if (move && modeAt === null) modeAt = t;
+    if (move && mode === 'gather' && t - modeAt! > GATHER_STAGGER_MS + GATHER_MS) {
+      mode = 'live';
+      modeAt = t;
+    }
+    const fading = move && mode !== 'live';
+
+    // black dots first, so the light ones sit on top
+    ctx.fillStyle = DARK_COLOR;
+    for (let k = 0; k < c.dark.length; k++) {
+      const i = c.dark[k]!;
+      place(c, i, t, move, R2);
+      if (fade <= 0) continue;
+      ctx.globalAlpha = fade;
+      const s = dot * c.big[i]!;
+      ctx.fillRect(px, py, s, s);
+    }
+    ctx.globalAlpha = 1;
+
     c.buckets.forEach((list, b) => {
-      ctx.fillStyle = styles[b]!;
+      ctx.fillStyle = fading ? LIGHT : styles[b]!;
+      const base = (b + 0.5) / STEPS;
       for (let k = 0; k < list.length; k++) {
         const i = list[k]!;
-        if (move) {
-          let vx = c.vx[i]! - c.ox[i]! * SPRING;
-          let vy = c.vy[i]! - c.oy[i]! * SPRING;
-          if (pointer) {
-            const dx = c.hx[i]! + c.ox[i]! - pointer.x;
-            const dy = c.hy[i]! + c.oy[i]! - pointer.y;
-            const d2 = dx * dx + dy * dy;
-            if (d2 < R2 && d2 > 0.01) {
-              const d = Math.sqrt(d2);
-              const push = (1 - d / radius) ** 2 * PUSH * dpr;
-              vx += (dx / d) * push;
-              vy += (dy / d) * push;
-            }
-          }
-          vx *= DAMPING;
-          vy *= DAMPING;
-          c.vx[i] = vx;
-          c.vy[i] = vy;
-          c.ox[i] = c.ox[i]! + vx;
-          c.oy[i] = c.oy[i]! + vy;
+        place(c, i, t, move, R2);
+        if (fading) {
+          if (fade <= 0) continue;
+          ctx.globalAlpha = base * fade;
         }
-        // a faint shimmer, so the still portrait doesn't look frozen
-        const wx = wob ? Math.sin(t * 0.0011 + c.phase[i]!) * wob : 0;
-        const wy = wob ? Math.cos(t * 0.0009 + c.phase[i]! * 1.3) * wob : 0;
         const s = dot * c.big[i]!;
-        ctx.fillRect(c.hx[i]! + c.ox[i]! + wx, c.hy[i]! + c.oy[i]! + wy, s, s);
+        ctx.fillRect(px, py, s, s);
       }
     });
+    ctx.globalAlpha = 1;
   }
 
   function start() {
     load().then((cloud) => {
       layout(cloud);
+      scatter(cloud);
       addEventListener('resize', () => {
         if (!wide.matches) return;
         layout(cloud);
@@ -201,14 +298,29 @@
         return;
       }
 
-      // start scattered, so the portrait gathers itself on load
-      const spread = Math.min(W, H) * 0.6;
-      for (let i = 0; i < cloud.n; i++) {
-        const a = Math.random() * Math.PI * 2;
-        const r = (0.3 + Math.random() * 0.9) * spread;
-        cloud.ox[i] = Math.cos(a) * r;
-        cloud.oy[i] = Math.sin(a) * r;
-      }
+      // following a site link (same tab, plain click): scatter first, then go
+      document.addEventListener('click', (e) => {
+        const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+        if (!a || e.defaultPrevented || e.button !== 0) return;
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        if (a.target && a.target !== '_self') return;
+        // only links that open another page (dev, dive, …); not mailto: or in-page anchors
+        if (!/^https?:$/.test(a.protocol) || a.origin === location.origin) return;
+        if (!wide.matches || mode === 'leave') return;
+        e.preventDefault();
+        scatter(cloud);
+        mode = 'leave';
+        modeAt = performance.now();
+        setTimeout(() => (location.href = a.href), LEAVE_MS);
+      });
+      // back from the next page (bfcache): gather again
+      addEventListener('pageshow', (e) => {
+        if (!e.persisted) return;
+        for (let i = 0; i < cloud.n; i++) cloud.ox[i] = cloud.oy[i] = cloud.vx[i] = cloud.vy[i] = 0;
+        scatter(cloud);
+        mode = 'gather';
+        modeAt = null;
+      });
 
       const frame = (t: number) => {
         if (wide.matches) draw(cloud, t, true); // narrowed to phone width: hidden, so skip

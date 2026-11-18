@@ -241,7 +241,8 @@ const person = {
 
     function visit() {
       const a = words[cur]!.querySelector('a');
-      if (a) location.href = a.href;
+      // a click, not location.href, so the point cloud can scatter before the page changes
+      if (a) a.click();
     }
 
     // ---- auto-rotation, stopped while someone is choosing ----
