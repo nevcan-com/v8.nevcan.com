@@ -58,9 +58,13 @@ size is set so the longest word fits the screen (`--word` in `index.astro`); a w
 
 ## Domains
 
-While previewed on v8.nevcan.com, `STAGING = true` in `src/data/profile.ts` makes every page
-noindex. Before moving www.nevcan.com here: add redirect pages for the old site's URLs, set
-`STAGING` to false, then move the custom domain from the old site's repository to this one.
+Live at **[www.nevcan.com](https://www.nevcan.com)** since November 2026, when it replaced v7
+(now archived at [v7.nevcan.com](https://v7.nevcan.com)). It was previewed on v8.nevcan.com
+first; `STAGING` in `src/data/profile.ts` (now `false`) made every page noindex during that time.
 
-Set `www.nevcan.com` as the custom domain in the repository's Pages settings. With the apex
-`nevcan.com` pointing at GitHub Pages too (A/AAAA records), GitHub redirects it to `www`.
+`www.nevcan.com` is the custom domain in the repository's Pages settings. The apex `nevcan.com`
+points at GitHub Pages too (A records), so GitHub redirects it to `www`.
+
+`public/gue/tf.html` and `public/calendar.html` redirect the two v7 pages that search engines
+still showed to their new pages on dive.nevcan.com; they can go after 1 January 2028 (#1).
+`robots.txt` and the sitemap (`@astrojs/sitemap`) point search engines at the site.
