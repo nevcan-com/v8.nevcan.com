@@ -15,7 +15,7 @@ export type Site = {
 
 export const sites: Site[] = [
   { label: 'scuba instructor', name: 'Diving', host: 'dive.nevcan.com', live: true },
-  { label: 'software engineer', name: 'Software', host: 'dev.nevcan.com', live: true },
+  { label: 'software architect', name: 'Software', host: 'dev.nevcan.com', live: true },
   { label: 'filmmaker', name: 'Film', host: 'film.nevcan.com', live: false },
   { label: 'game developer', name: 'Games', host: 'game.nevcan.com', live: false },
 ];

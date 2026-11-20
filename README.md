@@ -31,8 +31,8 @@ npm run build   # astro check + static build to dist/
 | The page, its styles and the rotation script | `src/pages/index.astro` |
 
 Only sites with `live: true` appear on the page. When a new one is up, flip it to true. The word
-size is set so the longest word fits the screen (`--word` in `index.astro`); a word longer than
-"software engineer" needs that divisor raised.
+size is set so the longest word fits the screen (`--word` in `src/layouts/Base.astro`); a word longer than
+"software architect" needs that divisor raised.
 
 ## How it behaves
 
